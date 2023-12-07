@@ -1,163 +1,50 @@
 import Combine
-import RxCocoa
-import RxRelay
+import MarketKit
 import RxSwift
 import ThemeKit
 
-class MainSettingsViewModel {
-    private let service: MainSettingsService
+class MainSettingsViewModel: ObservableObject {
     private let disposeBag = DisposeBag()
     private var cancellables = Set<AnyCancellable>()
 
-    private let manageWalletsAlertRelay: BehaviorRelay<Bool>
-    private let securityCenterAlertRelay: BehaviorRelay<Bool>
-    private let iCloudSyncAlertRelay: BehaviorRelay<Bool>
-    private let walletConnectCountRelay: BehaviorRelay<(highlighted: Bool, text: String)?>
-    private let baseCurrencyRelay: BehaviorRelay<String>
-    private let aboutAlertRelay: BehaviorRelay<Bool>
-    private let openWalletConnectRelay = PublishRelay<WalletConnectOpenMode>()
-    private let openLinkRelay = PublishRelay<String>()
+    private let backupManager = App.shared.backupManager
+    private let cloudBackupManager = App.shared.cloudBackupManager
+    private let accountRestoreWarningManager = App.shared.accountRestoreWarningManager
+    private let accountManager = App.shared.accountManager
+    private let contactManager = App.shared.contactManager
+    private let passcodeManager = App.shared.passcodeManager
+    private let termsManager = App.shared.termsManager
+    private let systemInfoManager = App.shared.systemInfoManager
+    private let currencyManager = App.shared.currencyManager
+    private let walletConnectSessionManager = App.shared.walletConnectSessionManager
+    private let subscriptionManager = App.shared.subscriptionManager
+    private let rateAppManager = App.shared.rateAppManager
 
-    init(service: MainSettingsService) {
-        self.service = service
+    @Published var manageWalletsAlert: Bool = false
+    @Published var securityAlert: Bool = false
+    @Published var baseCurrencyCode: String = ""
 
-        manageWalletsAlertRelay = BehaviorRelay(value: !service.noWalletRequiredActions)
-        securityCenterAlertRelay = BehaviorRelay(value: !service.isPasscodeSet)
-        iCloudSyncAlertRelay = BehaviorRelay(value: service.isCloudAvailableError)
-        walletConnectCountRelay = BehaviorRelay(value: Self.convert(walletConnectSessionCount: service.walletConnectSessionCount, walletConnectPendingRequestCount: service.walletConnectPendingRequestCount))
-        baseCurrencyRelay = BehaviorRelay(value: service.baseCurrency.code)
-        aboutAlertRelay = BehaviorRelay(value: !service.termsAccepted)
+    init() {
+        syncManageWalletsAlert()
+        syncSecurityAlert()
+        syncBaseCurrencyCode()
 
-        service.noWalletRequiredActionsObservable
-            .subscribeOn(ConcurrentDispatchQueueScheduler(qos: .userInitiated))
-            .subscribe(onNext: { [weak self] noWalletRequiredActions in
-                self?.manageWalletsAlertRelay.accept(!noWalletRequiredActions)
-            })
-            .disposed(by: disposeBag)
+        subscribe(disposeBag, backupManager.allBackedUpObservable) { [weak self] _ in self?.syncManageWalletsAlert() }
+        subscribe(disposeBag, accountRestoreWarningManager.hasNonStandardObservable) { [weak self] _ in self?.syncManageWalletsAlert() }
 
-        service.isPasscodeSetPublisher
-            .sink { [weak self] isPinSet in
-                self?.securityCenterAlertRelay.accept(!isPinSet)
-            }
-            .store(in: &cancellables)
-
-        service.iCloudAvailableErrorObservable
-            .subscribeOn(ConcurrentDispatchQueueScheduler(qos: .userInitiated))
-            .subscribe(onNext: { [weak self] hasError in
-                self?.iCloudSyncAlertRelay.accept(hasError)
-            })
-            .disposed(by: disposeBag)
-
-        service.walletConnectSessionCountObservable
-            .subscribeOn(ConcurrentDispatchQueueScheduler(qos: .userInitiated))
-            .subscribe(onNext: { [weak self] count in
-                self?.walletConnectCountRelay.accept(Self.convert(walletConnectSessionCount: count, walletConnectPendingRequestCount: self?.service.walletConnectPendingRequestCount ?? 0))
-            })
-            .disposed(by: disposeBag)
-
-        service.walletConnectPendingRequestCountObservable
-            .subscribeOn(ConcurrentDispatchQueueScheduler(qos: .userInitiated))
-            .subscribe(onNext: { [weak self] count in
-                self?.walletConnectCountRelay.accept(Self.convert(walletConnectSessionCount: self?.service.walletConnectSessionCount ?? 0, walletConnectPendingRequestCount: count))
-            })
-            .disposed(by: disposeBag)
-
-        service.baseCurrencyPublisher
-            .sink { [weak self] currency in
-                self?.baseCurrencyRelay.accept(currency.code)
-            }
-            .store(in: &cancellables)
-
-        service.termsAcceptedPublisher
-            .sink { [weak self] accepted in
-                self?.aboutAlertRelay.accept(!accepted)
-            }
-            .store(in: &cancellables)
+        passcodeManager.$isPasscodeSet.sink { [weak self] _ in self?.syncSecurityAlert() }.store(in: &cancellables)
+        currencyManager.$baseCurrency.sink { [weak self] _ in self?.syncBaseCurrencyCode() }.store(in: &cancellables)
     }
 
-    private static func convert(walletConnectSessionCount: Int, walletConnectPendingRequestCount: Int) -> (highlighted: Bool, text: String)? {
-        if walletConnectPendingRequestCount != 0 {
-            return (highlighted: true, text: "\(walletConnectPendingRequestCount)")
-        }
-        return walletConnectSessionCount > 0 ? (highlighted: false, text: "\(walletConnectSessionCount)") : nil
-    }
-}
-
-extension MainSettingsViewModel {
-    var openWalletConnectSignal: Signal<WalletConnectOpenMode> {
-        openWalletConnectRelay.asSignal()
+    private func syncManageWalletsAlert() {
+        manageWalletsAlert = !backupManager.allBackedUp || accountRestoreWarningManager.hasNonStandard
     }
 
-    var openLinkSignal: Signal<String> {
-        openLinkRelay.asSignal()
+    private func syncSecurityAlert() {
+        securityAlert = !passcodeManager.isPasscodeSet
     }
 
-    var manageWalletsAlertDriver: Driver<Bool> {
-        manageWalletsAlertRelay.asDriver()
-    }
-
-    var securityCenterAlertDriver: Driver<Bool> {
-        securityCenterAlertRelay.asDriver()
-    }
-
-    var iCloudSyncAlertDriver: Driver<Bool> {
-        iCloudSyncAlertRelay.asDriver()
-    }
-
-    var walletConnectCountDriver: Driver<(highlighted: Bool, text: String)?> {
-        walletConnectCountRelay.asDriver()
-    }
-
-    var baseCurrencyDriver: Driver<String> {
-        baseCurrencyRelay.asDriver()
-    }
-
-    var aboutAlertDriver: Driver<Bool> {
-        aboutAlertRelay.asDriver()
-    }
-
-    var currentLanguage: String? {
-        service.currentLanguageDisplayName
-    }
-
-    var appVersion: String {
-        service.appVersion
-    }
-
-    var analyticsLink: String {
-        service.analyticsLink
-    }
-
-    var isAuthenticated: Bool {
-        service.isAuthenticated
-    }
-
-    func onTapWalletConnect() {
-        switch service.walletConnectState {
-        case .noAccount:
-            openWalletConnectRelay.accept(.errorDialog(error: .noAccount))
-        case .backedUp:
-            openWalletConnectRelay.accept(.list)
-            stat(page: .settings, event: .open(page: .walletConnect))
-        case let .nonSupportedAccountType(accountType):
-            openWalletConnectRelay.accept(.errorDialog(error: .nonSupportedAccountType(accountTypeDescription: accountType.description)))
-        case let .unBackedUpAccount(account):
-            openWalletConnectRelay.accept(.errorDialog(error: .unbackupedAccount(account: account)))
-        }
-    }
-
-    func onTapCompanyLink() {
-        openLinkRelay.accept(AppConfig.companyWebPageLink)
-    }
-
-    func onTapRateApp() {
-        service.rateApp()
-    }
-}
-
-extension MainSettingsViewModel {
-    enum WalletConnectOpenMode {
-        case list
-        case errorDialog(error: WalletConnectAppShowView.WalletConnectOpenError)
+    private func syncBaseCurrencyCode() {
+        baseCurrencyCode = currencyManager.baseCurrency.code
     }
 }

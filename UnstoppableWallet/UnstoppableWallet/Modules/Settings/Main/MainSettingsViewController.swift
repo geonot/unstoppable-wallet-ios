@@ -10,7 +10,7 @@ import UIExtensions
 import UIKit
 
 class MainSettingsViewController: ThemeViewController {
-    private let viewModel: MainSettingsViewModel
+    private let viewModel: MainSettingsViewModelOld
     private var urlManager: UrlManager
 
     private let disposeBag = DisposeBag()
@@ -30,7 +30,7 @@ class MainSettingsViewController: ThemeViewController {
 
     private let showTestNetSwitcher: Bool
 
-    init(viewModel: MainSettingsViewModel, urlManager: UrlManager) {
+    init(viewModel: MainSettingsViewModelOld, urlManager: UrlManager) {
         self.viewModel = viewModel
         self.urlManager = urlManager
 
@@ -203,10 +203,7 @@ class MainSettingsViewController: ThemeViewController {
     }
 
     @objc private func onDonateTapped() {
-        guard let viewController = WalletModule.donateTokenListViewController() else {
-            return
-        }
-        present(viewController, animated: true)
+        present(WalletModule.donateTokenListViewController(), animated: true)
 
         stat(page: .settings, event: .open(page: .donate))
     }
@@ -463,7 +460,7 @@ class MainSettingsViewController: ThemeViewController {
         ]
     }
 
-    private func openWalletConnect(mode: MainSettingsViewModel.WalletConnectOpenMode) {
+    private func openWalletConnect(mode: MainSettingsViewModelOld.WalletConnectOpenMode) {
         switch mode {
         case let .errorDialog(error):
             WalletConnectAppShowView.showWalletConnectError(error: error, sourceViewController: self)

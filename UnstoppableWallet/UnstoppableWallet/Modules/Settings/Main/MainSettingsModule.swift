@@ -17,7 +17,7 @@ enum MainSettingsModule {
             rateAppManager: App.shared.rateAppManager
         )
 
-        let viewModel = MainSettingsViewModel(service: service)
+        let viewModel = MainSettingsViewModelOld(service: service)
 
         return MainSettingsViewController(viewModel: viewModel, urlManager: UrlManager(inApp: true))
     }

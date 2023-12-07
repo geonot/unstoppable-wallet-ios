@@ -1,4 +1,5 @@
 import UIKit
+import SwiftUI
 
 enum ManageAccountsModule {
     static func viewController(mode: Mode, createAccountListener: ICreateAccountListener? = nil) -> UIViewController {
@@ -13,4 +14,22 @@ extension ManageAccountsModule {
         case manage
         case switcher
     }
+}
+
+struct ManageAccountsView: UIViewControllerRepresentable {
+    typealias UIViewControllerType = UIViewController
+
+    private let mode: ManageAccountsModule.Mode
+    private let createAccountListener: ICreateAccountListener?
+
+    init(mode: ManageAccountsModule.Mode, createAccountListener: ICreateAccountListener? = nil) {
+        self.mode = mode
+        self.createAccountListener = createAccountListener
+    }
+
+    func makeUIViewController(context _: Context) -> UIViewController {
+        ManageAccountsModule.viewController(mode: mode, createAccountListener: createAccountListener)
+    }
+
+    func updateUIViewController(_: UIViewController, context _: Context) {}
 }

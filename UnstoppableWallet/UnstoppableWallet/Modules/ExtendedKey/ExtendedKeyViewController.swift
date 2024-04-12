@@ -137,20 +137,57 @@ class ExtendedKeyViewController: ThemeViewController {
 
         present(alertController, animated: true)
     }
+
+    private func show(title: String, description : String) {
+        let viewController = BottomSheetModule.description(title: title, text: description)
+        present(viewController, animated: true)
+    }
 }
 
 extension ExtendedKeyViewController: SectionsDataSource {
-    private func controlRow(item: ControlItem, isFirst: Bool = false, isLast: Bool = false) -> RowProtocol {
-        tableView.universalRow48(
+    private func controlRowWithDescription(item: ControlItem, isFirst: Bool = false, isLast: Bool = false) -> RowProtocol? {
+        guard let description = item.description else {
+            return nil
+        }
+        var elements: [CellBuilderNew.CellElement] = [
+            .textElement(text: .body(item.title), parameters: .allCompression),
+            .margin8,
+            .secondaryCircleButton { [weak self] component in
+                component.button.set(image: UIImage(named: "circle_information_20"), style: .transparent)
+                component.onTap = {
+                    self?.show(title: item.title, description: description)
+                }
+            },
+            .textElement(text: .subhead1(item.value, color: .themeGray), parameters: .rightAlignment),
+        ]
+
+        elements.append(contentsOf: CellBuilderNew.CellElement.accessoryElements(item.action == nil ? .none : .dropdown))
+
+        return CellBuilderNew.row(
+            rootElement: .hStack(elements),
+            tableView: tableView,
             id: item.id,
-            title: .body(item.title),
-            value: .subhead1(item.value, color: .themeGray),
-            accessoryType: item.action == nil ? .none : .dropdown,
+            height: .heightCell48,
             autoDeselect: true,
-            isFirst: isFirst,
-            isLast: isLast,
+            bind: { cell in
+                cell.set(backgroundStyle: .lawrence, isFirst: isFirst, isLast: isLast)
+            },
             action: item.action
         )
+    }
+
+    private func controlRow(item: ControlItem, isFirst: Bool = false, isLast: Bool = false) -> RowProtocol {
+        controlRowWithDescription(item: item, isFirst: isFirst, isLast: isLast) ??
+            tableView.universalRow48(
+                id: item.id,
+                title: .body(item.title),
+                value: .subhead1(item.value, color: .themeGray),
+                accessoryType: item.action == nil ? .none : .dropdown,
+                autoDeselect: true,
+                isFirst: isFirst,
+                isLast: isLast,
+                action: item.action
+            )
     }
 
     func buildSections() -> [SectionProtocol] {
@@ -183,6 +220,7 @@ extension ExtendedKeyViewController: SectionsDataSource {
                 ControlItem(
                     id: "account",
                     title: "extended_key.account".localized,
+                    description: "extended_key.account.description".localized,
                     value: account,
                     action: { [weak self] in
                         self?.onTapAccount()
@@ -267,7 +305,16 @@ extension ExtendedKeyViewController {
     struct ControlItem {
         let id: String
         let title: String
+        let description: String?
         let value: String
         var action: (() -> Void)?
+
+        init(id: String, title: String, description: String? = nil, value: String, action: (() -> Void)?) {
+            self.id = id
+            self.title = title
+            self.description = description
+            self.value = value
+            self.action = action
+        }
     }
 }

@@ -5,6 +5,7 @@ struct BaseCurrencySettingsView: View {
 
     @Environment(\.presentationMode) private var presentationMode
     @State var confirmationCurrency: Currency?
+    @State var alertPresented: Bool = false
 
     var body: some View {
         ScrollableThemeView {
@@ -49,7 +50,10 @@ struct BaseCurrencySettingsView: View {
                     Button(action: {
                         viewModel.baseCurrency = currency
                         confirmationCurrency = nil
-                        presentationMode.wrappedValue.dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            self.alertPresented = true
+                        }
+                    
                     }) {
                         Text("settings.base_currency.disclaimer.set".localized)
                     }
@@ -63,6 +67,24 @@ struct BaseCurrencySettingsView: View {
                     .buttonStyle(PrimaryButtonStyle(style: .transparent))
                 }
                 .padding(EdgeInsets(top: .margin24, leading: .margin24, bottom: .margin16, trailing: .margin24))
+            }
+        }
+        .bottomSheet(isPresented: $alertPresented) {
+            VStack(spacing: 0) {
+                HStack(spacing: .margin16) {
+                    Image("warning_2_24").themeIcon(color: .themeJacob)
+                    
+                    Text("settings.base_currency.disclaimer".localized).themeHeadline2()
+                    
+                    Button(action: {
+                        alertPresented = false
+                    }) {
+                        Image("close_3_24")
+                    }
+                }
+
+                HighlightedTextView(text: "settings.base_currency.disclaimer.description".localized(AppConfig.appName, viewModel.popularCurrencies.map(\.code).joined(separator: ",")))
+                    .padding(.horizontal, .margin16)
             }
         }
         .navigationBarTitle("settings.base_currency.title".localized)

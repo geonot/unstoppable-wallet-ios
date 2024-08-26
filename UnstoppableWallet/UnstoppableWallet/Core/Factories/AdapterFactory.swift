@@ -10,18 +10,20 @@ class AdapterFactory {
     private let binanceKitManager: BinanceKitManager
     private let btcBlockchainManager: BtcBlockchainManager
     private let tronKitManager: TronKitManager
+    private let tonKitManager: TonKitManager
     private let restoreSettingsManager: RestoreSettingsManager
     private let coinManager: CoinManager
     private let evmLabelManager: EvmLabelManager
 
     init(evmBlockchainManager: EvmBlockchainManager, evmSyncSourceManager: EvmSyncSourceManager, binanceKitManager: BinanceKitManager, btcBlockchainManager: BtcBlockchainManager, tronKitManager: TronKitManager,
-         restoreSettingsManager: RestoreSettingsManager, coinManager: CoinManager, evmLabelManager: EvmLabelManager)
+         tonKitManager: TonKitManager, restoreSettingsManager: RestoreSettingsManager, coinManager: CoinManager, evmLabelManager: EvmLabelManager)
     {
         self.evmBlockchainManager = evmBlockchainManager
         self.evmSyncSourceManager = evmSyncSourceManager
         self.binanceKitManager = binanceKitManager
         self.btcBlockchainManager = btcBlockchainManager
         self.tronKitManager = tronKitManager
+        self.tonKitManager = tonKitManager
         self.restoreSettingsManager = restoreSettingsManager
         self.coinManager = coinManager
         self.evmLabelManager = evmLabelManager
@@ -67,6 +69,22 @@ class AdapterFactory {
 
         return try? Trc20Adapter(tronKitWrapper: tronKitWrapper, contractAddress: address, wallet: wallet)
     }
+
+    private func tonAdapter(wallet: Wallet, baseToken: Token) -> IAdapter? {
+        guard let tonKit = try? tonKitManager.tonKit(account: wallet.account) else {
+            return nil
+        }
+
+        return try? TonAdapter(tonKit: tonKit, token: baseToken)
+    }
+
+    private func jettonAdapter(wallet: Wallet, baseToken: Token) -> IAdapter? {
+        guard let tonKit = try? tonKitManager.tonKit(account: wallet.account) else {
+            return nil
+        }
+        
+        return try? JettonAdapter(tonKit: tonKit, wallet: wallet, baseToken: baseToken)
+    }
 }
 
 extension AdapterFactory {
@@ -88,6 +106,17 @@ extension AdapterFactory {
 
         if let tronKitWrapper = tronKitManager.tronKitWrapper, let baseToken = try? coinManager.token(query: query) {
             return TronTransactionsAdapter(tronKitWrapper: tronKitWrapper, source: transactionSource, baseToken: baseToken, coinManager: coinManager, evmLabelManager: evmLabelManager)
+        }
+
+        return nil
+    }
+
+    func tonTransactionsAdapter(transactionSource: TransactionSource) -> ITransactionsAdapter? {
+        let query = TokenQuery(blockchainType: .ton, tokenType: .native)
+
+        if let tonKit = tonKitManager.tonKit,
+           let baseToken = try? coinManager.token(query: query) {
+            return TonTransactionsAdapter(tonKit: tonKit, source: transactionSource, baseToken: baseToken, coinManager: coinManager)
         }
 
         return nil
@@ -141,7 +170,13 @@ extension AdapterFactory {
             let query = TokenQuery(blockchainType: .ton, tokenType: .native)
 
             if let baseToken = try? coinManager.token(query: query) {
-                return try? TonAdapter(wallet: wallet, baseToken: baseToken)
+                return tonAdapter(wallet: wallet, baseToken: baseToken)
+            }
+        case (.jetton, .ton):
+            let query = TokenQuery(blockchainType: .ton, tokenType: .native)
+            
+            if let baseToken = try? coinManager.token(query: query) {
+                return jettonAdapter(wallet: wallet, baseToken: baseToken)
             }
         default: ()
         }

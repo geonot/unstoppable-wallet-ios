@@ -209,6 +209,8 @@ class App {
         let tronKitManager = TronKitManager(testNetManager: testNetManager)
         tronAccountManager = TronAccountManager(accountManager: accountManager, walletManager: walletManager, marketKit: marketKit, tronKitManager: tronKitManager, evmAccountRestoreStateManager: evmAccountRestoreStateManager)
 
+        let tonKitManager = TonKitManager(testNetManager: testNetManager)
+
         let restoreSettingsStorage = RestoreSettingsStorage(dbPool: dbPool)
         restoreSettingsManager = RestoreSettingsManager(storage: restoreSettingsStorage)
         predefinedBlockchainService = PredefinedBlockchainService(restoreSettingsManager: restoreSettingsManager)
@@ -258,6 +260,7 @@ class App {
             binanceKitManager: binanceKitManager,
             btcBlockchainManager: btcBlockchainManager,
             tronKitManager: tronKitManager,
+            tonKitManager: tonKitManager,
             restoreSettingsManager: restoreSettingsManager,
             coinManager: coinManager,
             evmLabelManager: evmLabelManager
@@ -267,6 +270,7 @@ class App {
             walletManager: walletManager,
             evmBlockchainManager: evmBlockchainManager,
             tronKitManager: tronKitManager,
+            tonKitManager: tonKitManager,
             btcBlockchainManager: btcBlockchainManager
         )
         transactionAdapterManager = TransactionAdapterManager(

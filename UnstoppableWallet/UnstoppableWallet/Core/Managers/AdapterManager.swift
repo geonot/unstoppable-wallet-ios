@@ -10,6 +10,7 @@ class AdapterManager {
     private let walletManager: WalletManager
     private let evmBlockchainManager: EvmBlockchainManager
     private let tronKitManager: TronKitManager
+    private let tonKitManager: TonKitManager
 
     private let adapterDataReadyRelay = PublishRelay<AdapterData>()
 
@@ -18,12 +19,13 @@ class AdapterManager {
     private var _adapterData = AdapterData(adapterMap: [:], account: nil)
 
     init(adapterFactory: AdapterFactory, walletManager: WalletManager, evmBlockchainManager: EvmBlockchainManager,
-         tronKitManager: TronKitManager, btcBlockchainManager: BtcBlockchainManager)
+         tronKitManager: TronKitManager, tonKitManager: TonKitManager, btcBlockchainManager: BtcBlockchainManager)
     {
         self.adapterFactory = adapterFactory
         self.walletManager = walletManager
         self.evmBlockchainManager = evmBlockchainManager
         self.tronKitManager = tronKitManager
+        self.tonKitManager = tonKitManager
 
         walletManager.activeWalletDataUpdatedObservable
             .observeOn(SerialDispatchQueueScheduler(qos: .userInitiated))
@@ -141,6 +143,18 @@ extension AdapterManager {
         queue.sync { _adapterData.adapterMap[wallet] as? IDepositAdapter }
     }
 
+    func didEnterBackground() {
+        queue.async {
+            for (wallet, adapter) in self._adapterData.adapterMap {
+                switch wallet.token.blockchainType {
+                case .ton:
+                    self.tonKitManager.didEnterBackground()
+                default: ()
+                }
+            }  
+        }
+    }
+    
     func refresh() {
         queue.async {
             for blockchain in self.evmBlockchainManager.allBlockchains {
@@ -155,6 +169,8 @@ extension AdapterManager {
                         adapter.refresh()
                         binanceKitUpdated = true
                     }
+                case .ton:
+                    self.tonKitManager.willEnterForeground()
                 default:
                     adapter.refresh()
                 }
@@ -170,6 +186,8 @@ extension AdapterManager {
                 self.evmBlockchainManager.evmKitManager(blockchainType: blockchainType).evmKitWrapper?.evmKit.refresh()
             } else if wallet.token.blockchainType == .tron {
                 self.tronKitManager.tronKitWrapper?.tronKit.refresh()
+            } else if wallet.token.blockchainType == .ton {
+                self.tonKitManager.tonKit?.refresh()
             } else {
                 self._adapterData.adapterMap[wallet]?.refresh()
             }

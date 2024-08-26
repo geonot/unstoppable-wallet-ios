@@ -14,6 +14,7 @@ extension TokenType {
         case .derived: return .native
         case .addressType: return .native
         case .eip20: return .eip20
+        case .jetton: return .eip20
         case .bep2: return .bep2
         case .spl: return .spl
         case .unsupported: return .unsupported
